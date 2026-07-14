@@ -1,0 +1,39 @@
+# Keil MDK build output
+Objects/
+Listings/
+*.axf
+*.bin
+*.build_log.htm
+*.crf
+*.d
+*.dep
+*.elf
+*.hex
+*.htm
+*.lnp
+*.map
+*.o
+*.sct
+
+# Keil per-user and debug state
+*.dbgconf
+*.uvguix.*
+*.uvopt
+*.uvoptx
+
+# STM32CubeIDE / Eclipse
+.metadata/
+.settings/
+Debug/
+Release/
+*.launch
+
+# Editor and operating-system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*~
+*.bak
+*.tmp
