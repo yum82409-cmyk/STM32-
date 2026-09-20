@@ -1,0 +1,20 @@
+* text=auto
+
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.py text eol=lf
+
+*.png binary
+*.pdf binary
+*.pptx binary
+*.pdsprj binary
+
+# 下列交付物参与原始字节 SHA-256 校验，禁止 Git 改写换行符。
+A.hex -text
+B.hex -text
+Firmware/A/Core/Src/main.c -text
+Firmware/A/Core/Inc/oled_font.h -text
+Firmware/B/Core/Src/main.c -text
+Firmware/B/Core/Inc/oled_font.h -text
+tools/gen_font.py -text

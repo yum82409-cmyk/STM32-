@@ -1,0 +1,40 @@
+name: Privacy and integrity check
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-public-package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify required deliverables
+        shell: bash
+        run: |
+          test -f A.hex
+          test -f B.hex
+          test -f Proteus/Dual_Board_Sim.pdsprj
+          test -f 赛题要求/2025年第7届电赛校赛初赛题目.pdf
+          test -f 赛题要求/赛题要求.pptx
+
+      - name: Verify SHA-256 checksums
+        shell: bash
+        run: sha256sum --check SHA256SUMS.txt
+
+      - name: Reject known private identifiers
+        shell: bash
+        run: |
+          windows_user="MECH""REUO"
+          previous_name="Liu""Guang"
+          private_name="刘""光中"
+          if git grep -I -n -E "${windows_user}|${previous_name}|${private_name}|[A-Z]:\\\\Users\\\\"; then
+            echo "检测到不应进入公开仓库的个人标识或本机路径。"
+            exit 1
+          fi
+          echo "隐私标识扫描通过。"
