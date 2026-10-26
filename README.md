@@ -2,53 +2,44 @@
 
 [![Privacy and integrity check](https://github.com/yum82409-cmyk/STM32-/actions/workflows/privacy-and-integrity.yml/badge.svg)](https://github.com/yum82409-cmyk/STM32-/actions/workflows/privacy-and-integrity.yml)
 
-这是学校电子设计竞赛题目的脱敏公开版工程。项目使用两片 STM32F103C8T6，实现 OLED 中文显示、流水灯、两路 PWM、电机调速与正反转、双机串口通信以及远程暂停/恢复。
+2026-10-25 更新：以最新本地验收版本替换旧工程，修复流水灯限流、计时时基、PWM1 时序、OLED 总线争用和复位后的暂停状态同步。公开版使用中文别名张三，字库和两机固件均已重新生成。
 
-## 主要功能
+两片 STM32F103C8T6 实现 OLED 中文显示、四路流水灯、两路 PWM、电机调速与换向、USART 双向通信和远程暂停恢复。
 
-- A 机：四路流水灯、0.01 秒计时、PWM1 自动渐变、PWM2 档位调节、电机正反转。
-- B 机：接收并显示两路 PWM 状态，判断电机停止/正常/异常，发送暂停与恢复命令。
-- 通信：USART1，115200-8-N-1，定长帧头、长度字段和 XOR 校验。
-- 仿真：Proteus 双机电路、OLED、L293D、电机、按键与数字示波器。
+## 快速运行
 
-## 快速入口
+1. 下载仓库 ZIP 并完整解压，保留所有目录的相对位置。
+2. 用 Proteus 8 打开 [Dual_Board_Sim.pdsprj](Proteus/Dual_Board_Sim.pdsprj)，启动仿真。
+3. KEY1 触发 PWM1 的 4s 上升、2s 下降；KEY2 调整电机档位；KEY3 换向；B 机 PAUSE 暂停和恢复。
+4. 查看波形时，在运行状态打开调试菜单中的 Digital Oscilloscope。
 
-- [赛题原文 PDF](赛题要求/2025年第7届电赛校赛初赛题目.pdf)
-- [赛题要求 PPT](赛题要求/赛题要求.pptx)
-- [Proteus 工程](Proteus/Dual_Board_Sim.pdsprj)
-- [A 机源码与 Keil 工程](Firmware/A/)
-- [B 机源码与 Keil 工程](Firmware/B/)
-- [操作说明](docs/操作说明.md)
-- [设计说明与验收报告](docs/设计说明与验收报告.md)
-- [最终验收清单](FINAL_CHECKLIST.md)
+Proteus 实际加载 `fw/A/A.hex`、`fw/B/B.hex`，根目录另有相同副本。正式配置 `ACCEPTANCE_DEMO=0`、`DEBUG_DISPLAY=0`。
 
-仓库根目录中的 `A.hex`、`B.hex` 可直接用于交付。编译记录见 `docs/A_release_build.log` 与 `docs/B_release_build.log`。
+![公开版仿真](docs/evidence/public_running.png)
 
-需要直接下载时可打开 [最新发布页](https://github.com/yum82409-cmyk/STM32-/releases/latest)，其中附带 A/B 固件、赛题 PDF 和赛题 PPT。
+## 文件入口
 
-## 运行仿真
+- [操作与编译](docs/运行与编译.md)
+- [电路引脚、时基和通信协议](docs/实现说明_2026-10-25.md)
+- [验收记录与范围](docs/最终仿真验收报告_2026-10-25.md)
+- [最终检查清单](FINAL_CHECKLIST.md)
+- [赛题 PDF](赛题要求/2025年第7届电赛校赛初赛题目.pdf) · [赛题 PPT](赛题要求/赛题要求.pptx)
+- [A 机源码](Firmware/A/) · [B 机源码](Firmware/B/)
+- [最新发布包](https://github.com/yum82409-cmyk/STM32-/releases/latest)
 
-1. 用 Proteus 8 打开 `Proteus/Dual_Board_Sim.pdsprj`。
-2. 保持目录结构不变并启动仿真。
-3. 需要查看 PWM1 时，在仿真运行后选择 `调试(D) → 5. Digital Oscilloscope`；双击原理图上的小示波器图标只会打开元件属性。
+## 编译和校验
 
-完整的按键位置、预期现象、串口协议和故障排查见 `docs/操作说明.md`。
+需要 Windows、Python 3 和 Keil µVision；重新生成字库还需 Pillow 与 Windows 字体。
 
-## 编译
+```text
+python tools/build.py --keil "你的安装目录/UV4/UV4.exe"
+python tools/verify_package.py
+```
 
-Keil 工程分别位于：
+编译脚本在英文临时目录构建，避免旧版 Keil 读取中文路径失败；两机都零错误、零警告后才更新发布固件。修改代码并编译后，原有 `SHA256SUMS.txt` 会失效，发布前需重新生成校验清单。
 
-- `Firmware/A/MDK-ARM/A_Firmware.uvprojx`
-- `Firmware/B/MDK-ARM/B_Firmware.uvprojx`
+本地参赛版本按题目功能复验建议模拟评分 100/100。公开版本沿用该控制逻辑和电路，仅替换姓名字库与显示调用；本次另行完成编译、工程加载和运行检查。详细测点与限制见验收记录，未进行实物验证。
 
-已归档的正式编译结果均为 `0 Error(s), 0 Warning(s)`。部分旧版 Keil 无法读取中文路径，遇到工程无法打开时请复制到纯 ASCII 路径后再编译。
+## 隐私和历史
 
-## 隐私说明
-
-公开版 OLED 姓名字段统一使用隐私别名“张三”，不包含参赛者真实姓名、Windows 用户名或本机绝对路径。字库可通过 `py tools/gen_font.py 显示别名` 重新生成；公开发布前请继续使用非真实称谓。
-
-## 校验
-
-关键交付物的 SHA-256 摘要记录在 `SHA256SUMS.txt`。
-
-每次推送和合并请求都会自动校验关键文件哈希，并扫描已知个人标识和 Windows 用户目录。
+公开版姓名字段统一显示张三，原始实名截图不上传。已移除旧版重复的单片机目录与过期交付记录，旧版本仍可通过 Git 历史和旧发布标签查阅。

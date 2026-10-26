@@ -11,13 +11,25 @@
 
 #define SCL_HI()  (OLED_SCL_GPIO->BSRR = (uint32_t)OLED_SCL_PIN)
 #define SCL_LO()  (OLED_SCL_GPIO->BRR  = (uint32_t)OLED_SCL_PIN)
-#define SDA_HI()  (OLED_SDA_GPIO->BSRR = (uint32_t)OLED_SDA_PIN)
-#define SDA_LO()  (OLED_SDA_GPIO->BRR  = (uint32_t)OLED_SDA_PIN)
+static void sda_release(void)
+{
+    OLED_SDA_GPIO->CRL = (OLED_SDA_GPIO->CRL & ~(0xFU << 28)) | (0x8U << 28);
+    OLED_SDA_GPIO->BSRR = (uint32_t)OLED_SDA_PIN;
+}
+
+static void sda_drive_low(void)
+{
+    OLED_SDA_GPIO->BRR = (uint32_t)OLED_SDA_PIN;
+    OLED_SDA_GPIO->CRL = (OLED_SDA_GPIO->CRL & ~(0xFU << 28)) | (0x7U << 28);
+}
+
+#define SDA_HI()  sda_release()
+#define SDA_LO()  sda_drive_low()
 #define SDA_READ() ((OLED_SDA_GPIO->IDR & OLED_SDA_PIN) != 0U)
 
 static void i2c_bit_delay(void)
 {
-    volatile uint8_t n = 2U;      /* 8MHz 主频下 ~1us, 远低于 SSD1306 400kHz 上限 */
+    volatile uint8_t n = 8U;      /* 为总线释放和采样保留建立时间。 */
     while (n != 0U) { n--; }
 }
 
@@ -48,13 +60,15 @@ static uint8_t i2c_write_byte(uint8_t b)
         i2c_bit_delay();
         SCL_LO();
     }
-    SDA_HI();                     /* 释放 SDA 读 ACK */
+    /* 高电平与 ACK 都释放 SDA，由上拉或从机决定电平。 */
+    SDA_HI();
     i2c_bit_delay();
     SCL_HI();
     i2c_bit_delay();
     {
         uint8_t ack = SDA_READ() ? 1U : 0U;
         SCL_LO();
+        i2c_bit_delay();
         return ack;
     }
 }
@@ -95,16 +109,30 @@ void OLED_Clear(void)
     }
 }
 
+/* 仅发送变化列，保证计时和状态刷新不必传输整屏。 */
 void OLED_Update(void)
 {
+    static uint8_t sent[8][128];
+    static uint8_t initialized = 0U;
     uint8_t page;
     for (page = 0U; page < 8U; page++)
     {
-        oled_write_cmd(0xB0U | page);          /* 页地址 */
-        oled_write_cmd(0x00U);                 /* 列地址低 4 位 */
-        oled_write_cmd(0x10U);                 /* 列地址高 4 位 */
-        oled_write_data_bytes(oled_buf[page], 128U);
+        uint16_t first = 0U;
+        uint16_t end = 128U;
+        uint16_t col;
+        if (initialized != 0U)
+        {
+            while ((first < 128U) && (sent[page][first] == oled_buf[page][first])) { first++; }
+            if (first == 128U) { continue; }
+            while ((end > first) && (sent[page][end - 1U] == oled_buf[page][end - 1U])) { end--; }
+        }
+        oled_write_cmd((uint8_t)(0xB0U | page));
+        oled_write_cmd((uint8_t)(first & 0x0FU));
+        oled_write_cmd((uint8_t)(0x10U | (first >> 4)));
+        oled_write_data_bytes(&oled_buf[page][first], (uint8_t)(end - first));
+        for (col = first; col < end; col++) { sent[page][col] = oled_buf[page][col]; }
     }
+    initialized = 1U;
 }
 
 void OLED_Init(void)

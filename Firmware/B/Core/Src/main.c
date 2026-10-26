@@ -71,6 +71,8 @@ volatile uint16_t dbg_last_p2 = 0U;
 
 /* ---- 暂停键状态 (PB0, 按下切换 暂停/恢复) ---- */
 static uint8_t  pause_cmd = 0U;            /* 当前输出状态: 0=运行 1=暂停 */
+static uint8_t ctrl_pending = 0U;
+static uint32_t ctrl_sent_ms = 0U;
 
 /* ---- 按键消抖 (主循环 10ms 扫描) ---- */
 typedef struct
@@ -122,7 +124,7 @@ static void proto_feed(uint8_t b)
       if (b == PROT_HEAD1) { st = 1U; }
       break;
     case 1U:
-      st = (b == PROT_HEAD2) ? 2U : 0U;
+      st = (b == PROT_HEAD2) ? 2U : ((b == PROT_HEAD1) ? 1U : 0U);
       break;
     case 2U:
       type = b;
@@ -150,6 +152,14 @@ static void proto_feed(uint8_t b)
         dbg_last_p1 = pwm1_duty;
         dbg_last_p2 = pwm2_duty;
         a_paused  = (uint8_t)(pay[4] & PROT_FLAG_PAUSE);
+        if (ctrl_pending != 0U)
+        {
+          if ((a_paused != 0U) == (pause_cmd != 0U)) { ctrl_pending = 0U; }
+        }
+        else
+        {
+          pause_cmd = (a_paused != 0U) ? 1U : 0U;
+        }
         frame_new = 1U;
       }
       else
@@ -251,6 +261,7 @@ static void send_ctrl_frame(uint8_t cmd)
   f[4] = cmd;
   f[5] = (uint8_t)(PROT_TYPE_CTRL ^ PROT_CTRL_LEN ^ cmd);
   (void)HAL_UART_Transmit(&huart1, f, 6U, 20U);
+  ctrl_sent_ms = HAL_GetTick();
 }
 
 /* USART1 单字节接收完成: 写环形缓冲 (中断内只写 head) */
@@ -308,7 +319,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   OLED_Init();
   oled_render();                       /* 初始画面: PWM1:0% / PWM2:0% / 电机停止 */
-  (void)HAL_UART_Receive_IT(&huart1, &rx_byte, 1U);
+  if (HAL_UART_Receive_IT(&huart1, &rx_byte, 1U) != HAL_OK) { Error_Handler(); }
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -356,6 +367,13 @@ int main(void)
     {
       key_pause.event = 0U;
       pause_cmd = (uint8_t)(pause_cmd ^ 1U);    /* 一键暂停/恢复 */
+      ctrl_pending = 1U;
+      send_ctrl_frame((pause_cmd != 0U) ? PROT_CTRL_PAUSE : PROT_CTRL_RESUME);
+    }
+
+    /* 未收到状态确认时重发，A 机重复控制帧保持幂等。 */
+    if ((ctrl_pending != 0U) && ((now - ctrl_sent_ms) >= 100U))
+    {
       send_ctrl_frame((pause_cmd != 0U) ? PROT_CTRL_PAUSE : PROT_CTRL_RESUME);
     }
 

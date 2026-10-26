@@ -25,7 +25,7 @@ jobs:
 
       - name: Verify SHA-256 checksums
         shell: bash
-        run: sha256sum --check SHA256SUMS.txt
+        run: python3 tools/verify_package.py
 
       - name: Reject known private identifiers
         shell: bash
